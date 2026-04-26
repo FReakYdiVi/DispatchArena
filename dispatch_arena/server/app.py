@@ -17,7 +17,6 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from dispatch_arena.models import Action, Config, Observation, State
-from dispatch_arena.server.andheri_api import build_andheri_router
 from dispatch_arena.server.api import CreateSessionRequest, ResetRequest, StepRequest
 from dispatch_arena.server.env import DEFAULT_MAX_TICKS, DispatchArenaEnvironment
 from dispatch_arena.server.metrics import episode_metrics
@@ -148,7 +147,6 @@ def create_app(
     manager = DispatchArenaServerApp(max_concurrent_envs=max_concurrent_envs, max_ticks=max_ticks)
     app = FastAPI(title="Dispatch Arena", version="0.1.0")
     app.state.dispatch_arena = manager
-    app.include_router(build_andheri_router())
 
     @app.get("/healthz")
     def healthz() -> dict:

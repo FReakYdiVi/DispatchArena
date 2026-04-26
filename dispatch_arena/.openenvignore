@@ -1,0 +1,10 @@
+# Local training outputs / adapters
+scripts/_grpo_normal_out/
+
+# Common model weight and checkpoint artifacts
+**/*.safetensors
+**/*.bin
+**/*.pt
+**/*.pth
+**/*.ckpt
+**/checkpoint*/

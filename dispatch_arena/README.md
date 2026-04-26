@@ -15,6 +15,15 @@ tags:
 
 Dispatch Arena is one server-authoritative delivery-dispatch environment package for RL training, replay, and demo UI.
 
+Dispatch Arena focuses on a real delivery-operations question: how should a dispatcher assign, delay, or reprioritize orders when restaurant prep, travel time, and deadline pressure evolve over time? The environment is built for OpenEnv so the same simulator can be used for manual inspection, frontend demos, and reinforcement learning with tool-using agents.
+
+## Quick Links
+
+- Hugging Face Space: [Freakdivi/dispatch_arena_v0](https://huggingface.co/spaces/Freakdivi/dispatch_arena_v0)
+- Training notebook: [`dispatch_arena_colab.ipynb`](./dispatch_arena_colab.ipynb)
+- Writeup draft: [`blog_new.md`](./blog_new.md)
+- Training evidence directory: [`outputs/`](./outputs/)
+
 ## Layout
 
 ```text
@@ -35,6 +44,7 @@ dispatch_arena/
     static/
   tests/
   docs/SPEC.md
+  outputs/
 ```
 
 ## Setup
