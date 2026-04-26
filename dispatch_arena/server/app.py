@@ -282,6 +282,14 @@ def create_app(
         def index() -> FileResponse:
             return FileResponse(static_dir / "index.html")
 
+        @app.get("/web")
+        def web_index() -> FileResponse:
+            return FileResponse(static_dir / "index.html")
+
+        @app.get("/web/{path:path}")
+        def web_index_catchall(path: str) -> FileResponse:
+            return FileResponse(static_dir / "index.html")
+
     return app
 
 

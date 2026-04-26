@@ -11,8 +11,8 @@ RUN uv pip install --system --no-cache-dir -e .
 
 ENV DISPATCH_ARENA_MAX_CONCURRENT_ENVS=16
 ENV PYTHONUNBUFFERED=1
-ENV PORT=7860
+ENV PORT=8000
 
-EXPOSE 7860
+EXPOSE 8000
 
 CMD ["python", "-m", "dispatch_arena.server.app"]

@@ -1,19 +1,18 @@
 // Main app: composes all panels + manages playback state.
 //
 // State:
-//   scenarioId    — which scenario is loaded
-//   modeId        — which model's trajectory is being shown ("trained" | "heuristic" | "prompt_only")
-//   currentTick   — index into trajectory
-//   isPlaying     — autoplay on
-//   speed         — 1× / 2× / 4× (lower delay = higher speed)
-//   comparison    — show two columns side-by-side (heuristic vs trained)
+//   scenarioId     — which scenario is loaded
+//   modeId         — which model's trajectory is being shown ("trained" | "heuristic" | "prompt_only")
+//   currentTick    — index into trajectory
+//   isPlaying      — autoplay on
+//   playbackPhase  — "idle" | "thinking" | "acting"
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { SCENARIOS } from './fixtures.js';
 import {
   ScenarioMap, OrdersPanel, AgentFeed, RewardPanel,
-  ControlBar, TickScrubber, FinalCard,
+  ControlBar, TickScrubber, FinalCard, ActionBanner,
 } from './components.jsx';
 import './styles.css';
 
@@ -23,7 +22,8 @@ const MODES = [
   { id: 'prompt_only', label: '💬 untrained LLM (zero-shot)' },
 ];
 
-const TICK_BASE_MS = 700;  // 1× speed = one tick per 700 ms
+const THINKING_MS = 1800;
+const ACTION_MS = 1200;
 
 function ScenarioSummary({ scenario }) {
   const m = scenario.metadata;
@@ -65,39 +65,83 @@ function App() {
   const [modeId, setModeId] = useState('trained');
   const [currentTick, setCurrentTick] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [speed, setSpeed] = useState(1);
-  const [comparisonMode, setComparisonMode] = useState(false);
+  const [playbackPhase, setPlaybackPhase] = useState('idle');
 
   const scenario = SCENARIOS[scenarioId];
   const trajectory = scenario.trajectories[modeId] || scenario.trajectories.trained;
-  const trajectoryLen = useMemo(() => {
-    if (comparisonMode) {
-      return Math.max(scenario.trajectories.trained.length, scenario.trajectories.heuristic.length);
-    }
-    return trajectory.length;
-  }, [scenario, trajectory, comparisonMode]);
+  const trajectoryLen = useMemo(() => trajectory.length, [trajectory]);
 
   // Reset tick when scenario or mode changes
-  useEffect(() => { setCurrentTick(0); setIsPlaying(false); }, [scenarioId, modeId, comparisonMode]);
-
-  // Playback loop
-  const intervalRef = useRef(null);
   useEffect(() => {
+    setCurrentTick(0);
+    setIsPlaying(false);
+    setPlaybackPhase('idle');
+  }, [scenarioId, modeId]);
+
+  // Playback loop: show an explicit "thinking" pause before each action.
+  const timeoutRef = useRef(null);
+  useEffect(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
     if (!isPlaying) {
-      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+      setPlaybackPhase('idle');
       return;
     }
-    intervalRef.current = setInterval(() => {
-      setCurrentTick((prev) => {
-        if (prev >= trajectoryLen - 1) {
-          setIsPlaying(false);
-          return prev;
-        }
-        return prev + 1;
-      });
-    }, TICK_BASE_MS / speed);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [isPlaying, speed, trajectoryLen]);
+
+    if (currentTick >= trajectoryLen - 1) {
+      setIsPlaying(false);
+      setPlaybackPhase('idle');
+      return;
+    }
+
+    setPlaybackPhase('thinking');
+    timeoutRef.current = setTimeout(() => {
+      setPlaybackPhase('acting');
+      timeoutRef.current = setTimeout(() => {
+        setCurrentTick((prev) => {
+          if (prev >= trajectoryLen - 1) {
+            setIsPlaying(false);
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, ACTION_MS);
+    }, THINKING_MS);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [isPlaying, currentTick, trajectoryLen]);
+
+  const jumpToTick = (tick) => {
+    setIsPlaying(false);
+    setPlaybackPhase('idle');
+    setCurrentTick(tick);
+  };
+
+  const stepBack = () => {
+    setIsPlaying(false);
+    setPlaybackPhase('idle');
+    setCurrentTick((t) => Math.max(0, t - 1));
+  };
+
+  const stepForward = () => {
+    setIsPlaying(false);
+    setPlaybackPhase('idle');
+    setCurrentTick((t) => Math.min(trajectoryLen - 1, t + 1));
+  };
+
+  const resetPlayback = () => {
+    setCurrentTick(0);
+    setIsPlaying(false);
+    setPlaybackPhase('idle');
+  };
 
   return (
     <div className="app">
@@ -110,40 +154,33 @@ function App() {
         onModeChange={setModeId}
         isPlaying={isPlaying}
         onPlayToggle={() => setIsPlaying((p) => !p)}
-        onStepBack={() => setCurrentTick((t) => Math.max(0, t - 1))}
-        onStepForward={() => setCurrentTick((t) => Math.min(trajectoryLen - 1, t + 1))}
-        onReset={() => { setCurrentTick(0); setIsPlaying(false); }}
-        speed={speed}
-        onSpeedChange={setSpeed}
-        comparisonMode={comparisonMode}
-        onComparisonToggle={() => setComparisonMode((c) => !c)}
+        onStepBack={stepBack}
+        onStepForward={stepForward}
+        onReset={resetPlayback}
       />
 
       <ScenarioSummary scenario={scenario} />
 
-      <div className={`workspace${comparisonMode ? ' compare' : ''}`}>
-        {comparisonMode ? (
-          <>
-            <div className="compare-col">
-              <div className="compare-label heuristic">⚙ greedy heuristic</div>
-              <PlaybackPanel scenarioId={scenarioId} scenario={scenario} modeId="heuristic"
-                             currentTick={currentTick} onJumpToTick={setCurrentTick} />
-            </div>
-            <div className="compare-col">
-              <div className="compare-label trained">🤖 trained agent</div>
-              <PlaybackPanel scenarioId={scenarioId} scenario={scenario} modeId="trained"
-                             currentTick={currentTick} onJumpToTick={setCurrentTick} />
-            </div>
-          </>
-        ) : (
-          <PlaybackPanel scenarioId={scenarioId} scenario={scenario} modeId={modeId}
-                         currentTick={currentTick} onJumpToTick={setCurrentTick} />
-        )}
+      <ActionBanner
+        trajectory={trajectory}
+        currentTick={currentTick}
+        playbackPhase={playbackPhase}
+        isPlaying={isPlaying}
+      />
+
+      <div className="workspace">
+        <PlaybackPanel
+          scenarioId={scenarioId}
+          scenario={scenario}
+          modeId={modeId}
+          currentTick={currentTick}
+          onJumpToTick={jumpToTick}
+        />
       </div>
 
       <TickScrubber trajectory={trajectory}
                     currentTick={currentTick}
-                    onTickChange={setCurrentTick}
+                    onTickChange={jumpToTick}
                     maxTicks={scenario.metadata.max_ticks} />
     </div>
   );

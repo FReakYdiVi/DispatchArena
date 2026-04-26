@@ -361,10 +361,6 @@ export function ControlBar({
   onStepBack,
   onStepForward,
   onReset,
-  speed,
-  onSpeedChange,
-  comparisonMode,
-  onComparisonToggle,
 }) {
   return (
     <div className="control-bar">
@@ -377,32 +373,82 @@ export function ControlBar({
             </option>
           ))}
         </select>
-        {!comparisonMode && (
-          <select className="ctrl-select" value={modeId} onChange={(e) => onModeChange(e.target.value)}>
-            {modes.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-          </select>
-        )}
+        <select className="ctrl-select" value={modeId} onChange={(e) => onModeChange(e.target.value)}>
+          {modes.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+        </select>
       </div>
       <div className="control-bar-right">
         <button className="ctrl-btn" onClick={onStepBack}>⏮</button>
         <button className="ctrl-btn primary" onClick={onPlayToggle}>{isPlaying ? '⏸' : '▶'}</button>
         <button className="ctrl-btn" onClick={onStepForward}>⏭</button>
         <button className="ctrl-btn" onClick={onReset}>⟲</button>
-        <span className="ctrl-divider" />
-        {[1, 2, 4].map((s) => (
-          <button key={s}
-                  className={`ctrl-btn speed${speed === s ? ' active' : ''}`}
-                  onClick={() => onSpeedChange(s)}>
-            {s}×
-          </button>
-        ))}
-        <span className="ctrl-divider" />
-        <button className={`ctrl-btn ${comparisonMode ? 'active' : ''}`}
-                onClick={onComparisonToggle}
-                title="Compare heuristic vs trained side-by-side">
-          ⇆ compare
-        </button>
       </div>
+    </div>
+  );
+}
+
+function formatActionLabel(action) {
+  if (!action) return 'Waiting for the shift to begin';
+  const type = action.type || action.action_type || 'unknown';
+  if (type === 'assign') {
+    return `Assign ${shortCourier(action.courier_id)} to ${shortOrder(action.order_id)}`;
+  }
+  if (type === 'reposition') {
+    return `Reposition ${shortCourier(action.courier_id)} to ${action.node_id}`;
+  }
+  if (type === 'prioritize') {
+    return action.order_id ? `Prioritize ${shortOrder(action.order_id)}` : 'Prioritize the backlog';
+  }
+  if (type === 'hold') return 'Hold and wait for more information';
+  if (type === 'finish_shift') return 'Finish the shift';
+  if (type === 'go_pickup') return 'Head to pickup';
+  if (type === 'pickup') return 'Pick up the order';
+  if (type === 'go_dropoff') return 'Head to dropoff';
+  if (type === 'dropoff') return 'Deliver the order';
+  return type.replace(/_/g, ' ');
+}
+
+function shortCourier(courierId) {
+  return courierId ? courierId.replace('courier_', 'C') : 'a courier';
+}
+
+function shortOrder(orderId) {
+  return orderId ? orderId.replace('order_', 'O') : 'an order';
+}
+
+export function ActionBanner({ trajectory, currentTick, playbackPhase, isPlaying }) {
+  const currentStep = trajectory[currentTick];
+  const nextStep = currentTick < trajectory.length - 1 ? trajectory[currentTick + 1] : null;
+
+  let status = 'Ready';
+  let actionText = currentStep?.action ? formatActionLabel(currentStep.action) : 'Choose play to start the replay';
+  let subtext = currentStep?.events?.[0] || 'Manual stepping is available below.';
+
+  if (currentTick >= trajectory.length - 1) {
+    status = 'Shift complete';
+    actionText = currentStep?.events?.[0] || 'No more actions left in this replay';
+    subtext = `Final cumulative reward: ${(currentStep?.cumulative_reward ?? 0).toFixed(2)}`;
+  } else if (isPlaying && playbackPhase === 'thinking') {
+    status = 'Agent is thinking';
+    actionText = nextStep?.action ? formatActionLabel(nextStep.action) : 'Waiting for the next move';
+    subtext = 'Reading the current state and planning the next action...';
+  } else if (isPlaying && playbackPhase === 'acting') {
+    status = 'Action taken';
+    actionText = nextStep?.action ? formatActionLabel(nextStep.action) : 'Waiting for the next move';
+    subtext = nextStep?.events?.[0] || 'Applying the action to the simulator.';
+  } else if (currentStep?.action) {
+    status = 'Last action';
+  } else if (nextStep?.action) {
+    status = 'Next action';
+    actionText = formatActionLabel(nextStep.action);
+    subtext = nextStep?.events?.[0] || 'Use play to watch the next step.';
+  }
+
+  return (
+    <div className={`action-banner phase-${playbackPhase}`}>
+      <div className="action-banner-status">{status}</div>
+      <div className="action-banner-line">{actionText}</div>
+      <div className="action-banner-subtext">{subtext}</div>
     </div>
   );
 }
