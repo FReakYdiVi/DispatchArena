@@ -1,6 +1,10 @@
 # Local training outputs / adapters
 scripts/_grpo_normal_out/
 
+# Frontend install/build artifacts
+frontend/node_modules/
+frontend/.vite/
+
 # Common model weight and checkpoint artifacts
 **/*.safetensors
 **/*.bin
