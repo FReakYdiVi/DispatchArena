@@ -1,0 +1,28 @@
+.venv/
+
+# Python cache/build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+
+# Frontend local artifacts
+node_modules/
+.vite/
+
+# Local environment files
+.env
+.env.*
+
+# OS/editor noise
+.DS_Store
+
+# Local training outputs not needed in source repo
+dispatch_arena/scripts/_grpo_normal_out/
