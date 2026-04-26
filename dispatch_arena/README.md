@@ -1,3 +1,16 @@
+---
+title: Dispatch Arena Environment Server
+emoji: 🚚
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+app_port: 8000
+base_path: /web
+tags:
+  - openenv
+---
+
 # Dispatch Arena
 
 Dispatch Arena is one server-authoritative delivery-dispatch environment package for RL training, replay, and demo UI.
